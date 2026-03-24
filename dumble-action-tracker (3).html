@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dumble Action Tracker</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=DM+Sans:wght@300;400;500;700&display=swap');
+  :root {
+    --yellow: #FFC629;
+    --dark: #1A1A1A;
+    --cream: #FFF9F0;
+    --muted: #7d7d7d;
+    --card: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: 'DM Sans', sans-serif;
+    background: linear-gradient(180deg, #fffaf2 0%, #f7edd9 100%);
+    color: var(--dark);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .panel {
+    width: min(100%, 420px);
+    background: rgba(255,255,255,0.9);
+    border-radius: 28px;
+    padding: 28px 24px;
+    box-shadow: 0 18px 50px rgba(0,0,0,0.12);
+    text-align: center;
+  }
+  .brand {
+    font-family: 'Caveat', cursive;
+    font-size: 34px;
+    font-weight: 700;
+    display: inline-block;
+    position: relative;
+    margin-bottom: 16px;
+  }
+  .brand::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -2px;
+    height: 3px;
+    background: var(--yellow);
+    border-radius: 999px;
+    transform: rotate(-1deg);
+  }
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    border-radius: 999px;
+    padding: 10px 18px;
+    background: #fff8e1;
+    margin: 10px 0 18px;
+    font-weight: 600;
+  }
+  .status-pill.right { background: #eefbee; }
+  .status-pill.left { background: #fff1f1; }
+  .emoji { font-size: 40px; margin-bottom: 10px; }
+  h1 { font-size: 28px; margin: 0 0 10px; }
+  p { margin: 0; line-height: 1.6; color: var(--muted); }
+  .meta {
+    margin-top: 22px;
+    text-align: left;
+    background: var(--card);
+    border-radius: 20px;
+    padding: 16px;
+    border: 1px solid rgba(0,0,0,0.06);
+  }
+  .meta-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+  }
+  .meta-row:last-child { border-bottom: none; }
+  .meta-label { color: var(--muted); }
+  .hint { margin-top: 18px; font-size: 12px; }
+</style>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+</head>
+<body>
+  <div class="panel">
+    <div class="brand">Dumble</div>
+    <div class="emoji" id="emoji">🕊️</div>
+    <h1 id="title">No action recorded yet</h1>
+    <div class="status-pill" id="pill">Waiting for a swipe</div>
+    <p id="subtitle">When Nimrit swipes on your Dumble page, this tracker will show the action here in real time.</p>
+
+    <div class="meta">
+      <div class="meta-row"><span class="meta-label">Person</span><strong id="person">Nimrit</strong></div>
+      <div class="meta-row"><span class="meta-label">Profile</span><strong id="profile">Praggie</strong></div>
+      <div class="meta-row"><span class="meta-label">Action</span><strong id="action">No action</strong></div>
+      <div class="meta-row"><span class="meta-label">Recorded at</span><strong id="time">—</strong></div>
+    </div>
+
+    <button id="clear-btn" style="margin-top:18px;background:#1A1A1A;color:white;border:none;border-radius:999px;padding:12px 18px;font:inherit;cursor:pointer;">Clear recorded swipe</button>
+    <p class="hint">This page listens to Firebase in real time. Both right and left swipes are saved, but only the tracker reveals which one happened.</p>
+  </div>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyCekk4Irh-n2akYQtHchovYQCe7vdyrrpA",
+    authDomain: "swipee-6e1e4.firebaseapp.com",
+    projectId: "swipee-6e1e4",
+    storageBucket: "swipee-6e1e4.firebasestorage.app",
+    messagingSenderId: "577508749888",
+    appId: "1:577508749888:web:0418afd15945abb0ec65a5",
+    measurementId: "G-X12X5CN64C"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const TRACKER_ID = 'praggie_nimrit';
+
+  function renderEmpty() {
+    const emoji = document.getElementById('emoji');
+    const title = document.getElementById('title');
+    const pill = document.getElementById('pill');
+    const subtitle = document.getElementById('subtitle');
+    const person = document.getElementById('person');
+    const profile = document.getElementById('profile');
+    const action = document.getElementById('action');
+    const time = document.getElementById('time');
+
+    pill.className = 'status-pill';
+    pill.textContent = 'Waiting for a swipe';
+    emoji.textContent = '🕊️';
+    title.textContent = 'No swipe recorded yet';
+    subtitle.textContent = 'When Nimrit swipes on your Dumble page, it will appear here instantly.';
+    person.textContent = 'Nimrit';
+    profile.textContent = 'Praggie';
+    action.textContent = 'No action';
+    time.textContent = '—';
+  }
+
+  function renderAction(data) {
+    const emoji = document.getElementById('emoji');
+    const title = document.getElementById('title');
+    const pill = document.getElementById('pill');
+    const subtitle = document.getElementById('subtitle');
+    const person = document.getElementById('person');
+    const profile = document.getElementById('profile');
+    const action = document.getElementById('action');
+    const time = document.getElementById('time');
+    const isRight = data.action === 'right';
+
+    person.textContent = data.person || 'Nimrit';
+    profile.textContent = data.profileName || 'Praggie';
+    action.textContent = data.actionLabel || (isRight ? 'Swiped Right' : 'Swiped Left');
+    time.textContent = data.recordedAt || '—';
+
+    pill.className = 'status-pill ' + (isRight ? 'right' : 'left');
+    pill.textContent = isRight ? 'Right swipe recorded' : 'Left swipe recorded';
+    emoji.textContent = isRight ? '💛' : '💔';
+    title.textContent = isRight ? "It's a Match, Nimrit!" : 'Left swipe recorded';
+    subtitle.textContent = isRight
+      ? 'Nimrit swiped right on Praggie. This was synced from Firebase in real time.'
+      : 'Nimrit swiped left on Praggie. This was synced from Firebase in real time.';
+  }
+
+  renderEmpty();
+
+  db.collection('dumble_swipes').doc(TRACKER_ID).onSnapshot((doc) => {
+    const data = doc.data();
+    if (!doc.exists || !data || !data.action) {
+      renderEmpty();
+      return;
+    }
+    renderAction(data);
+  }, (error) => {
+    console.error('Tracker listener failed:', error);
+    const subtitle = document.getElementById('subtitle');
+    subtitle.textContent = 'Firebase could not be reached right now.';
+  });
+
+  document.getElementById('clear-btn').addEventListener('click', async () => {
+    try {
+      await db.collection('dumble_swipes').doc(TRACKER_ID).delete();
+      renderEmpty();
+    } catch (error) {
+      console.error('Failed to clear tracker:', error);
+      alert('Could not clear the recorded swipe right now.');
+    }
+  });
+</script>
+</body>
+</html>
